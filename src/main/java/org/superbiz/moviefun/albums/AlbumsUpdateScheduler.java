@@ -31,13 +31,32 @@ public class AlbumsUpdateScheduler {
     @Scheduled(initialDelay = 15 * SECONDS, fixedRate = 2 * MINUTES)
     public void run() {
         try {
-            logger.debug("Starting albums update");
-            albumsUpdater.update();
+            logger.debug("Checking for albums task to start");
 
-            logger.debug("Finished albums update");
+            if (startAlbumSchedulerTask()) {
+                logger.debug("Starting albums update");
+
+                albumsUpdater.update();
+
+                logger.debug("Finished albums update");
+            } else {
+                logger.debug("Nothing to start");
+            }
 
         } catch (Throwable e) {
             logger.error("Error while updating albums", e);
         }
+    }
+
+
+    private boolean startAlbumSchedulerTask() {
+        int updatedRows = jdbcTemplate.update(
+                "UPDATE album_scheduler_task" +
+                        " SET started_at = now()" +
+                        " WHERE started_at IS NULL" +
+                        " OR started_at < date_sub(now(), INTERVAL 2 MINUTE)"
+        );
+
+        return updatedRows > 0;
     }
 }
